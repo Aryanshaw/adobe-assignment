@@ -1,0 +1,15 @@
+{
+  "name": "@repo/agent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": ".venv/bin/uvicorn main:app --reload --port 8001",
+    "lint": "uv run ruff check .",
+    "lint:fix": "uv run ruff check . --fix",
+    "format": "uv run ruff format .",
+    "db:upgrade": ".venv/bin/alembic upgrade head",
+    "db:downgrade": ".venv/bin/alembic downgrade -1",
+    "db:revision": ".venv/bin/alembic revision --autogenerate -m",
+    "postinstall": "uv sync"
+  }
+}

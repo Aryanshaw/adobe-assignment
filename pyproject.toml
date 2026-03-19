@@ -1,0 +1,38 @@
+[project]
+name = "sample-agent"
+version = "0.1.0"
+description = "A LangGraph agent"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.5,<1.0.0",
+    "uvicorn[standard]>=0.29.0,<1.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+    "httpx>=0.28.1",
+    "aiohttp>=3.11.14",
+    "asyncpg>=0.30.0",
+    "sqlalchemy>=2.0.36",
+    "greenlet>=3.1.1",
+    "alembic>=1.14.0",
+    "langchain>=0.3.27",
+    "langchain-core>=0.3.75",
+    "langchain-google-genai>=2.1.12",
+    "langchain-groq>=0.3.8",
+    "ruff>=0.9.10",
+    "langgraph",
+    "docling",
+    "langcache",
+    "langchain-openai",
+    "langchain-anthropic",
+    "cohere",
+    "qdrant-client",
+    "redis>=5.0.0",
+    "rank-bm25>=0.2.2",
+    "pandas>=2.0.0",
+    "openpyxl",
+    "tabulate",
+    "openai>=1.0.0",
+    "python-multipart>=0.0.9",
+    "aiosqlite>=0.22.1",
+    "groq>=0.37.1",
+    "tiktoken>=0.12.0",
+]
