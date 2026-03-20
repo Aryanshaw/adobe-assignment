@@ -31,10 +31,25 @@ def rrf_fuse(dense: list, sparse: list, k: int = 60) -> list[dict]:
         }
 
     for rank, result in enumerate(sparse):
-        cid = result.get("id", f"bm25_{rank}")
+        if isinstance(result, dict):
+            cid = result.get("id", f"bm25_{rank}")
+            normalized = {
+                "text": result.get("text", ""),
+                "source": result.get("source", result.get("source_file", "unknown")),
+                "page": result.get("page", ""),
+                "id": cid,
+            }
+        else:
+            cid = f"bm25_{rank}"
+            normalized = {
+                "text": str(result),
+                "source": "unknown",
+                "page": "",
+                "id": cid,
+            }
         scores[cid] = scores.get(cid, 0) + 1 / (k + rank)
         if cid not in chunk_map:
-            chunk_map[cid] = result
+            chunk_map[cid] = normalized
 
     sorted_ids = sorted(scores, key=lambda x: scores[x], reverse=True)
     return [chunk_map[cid] for cid in sorted_ids[:20]]

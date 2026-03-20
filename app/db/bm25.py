@@ -11,6 +11,31 @@ class BM25Connection:
         self.index = None
         self.corpus = [] # List of dictionaries containing "text", "source_file", etc.
 
+    def _normalize_corpus_item(self, item, idx: int) -> dict:
+        if isinstance(item, dict):
+            normalized = dict(item)
+            if "source" not in normalized:
+                normalized["source"] = normalized.get("source_file", "unknown")
+            normalized.setdefault("text", "")
+            normalized.setdefault("page", None)
+            normalized.setdefault("id", f"bm25_{idx}")
+            return normalized
+        if isinstance(item, str):
+            return {
+                "id": f"legacy_bm25_{idx}",
+                "text": item,
+                "source": "legacy_bm25",
+                "source_file": "legacy_bm25",
+                "page": None,
+            }
+        return {
+            "id": f"bm25_{idx}",
+            "text": str(item),
+            "source": "unknown",
+            "source_file": "unknown",
+            "page": None,
+        }
+
     async def connect(self) -> None:
         if os.path.exists(self.index_path) and os.path.exists(self.corpus_path):
             def load_data():
@@ -21,6 +46,10 @@ class BM25Connection:
                 return idx, corp
                 
             self.index, self.corpus = await asyncio.to_thread(load_data)
+            self.corpus = [
+                self._normalize_corpus_item(item, idx)
+                for idx, item in enumerate(self.corpus)
+            ]
             logger.info(f"Loaded BM25 index and corpus ({len(self.corpus)} docs)")
         else:
             logger.info("BM25 index/corpus not found. Will be created during first ingestion.")
