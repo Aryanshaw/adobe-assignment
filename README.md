@@ -1,67 +1,56 @@
-# Agent Backend
+# Leadership Intelligence Agent 🤖
 
-This backend uses FastAPI + SQLAlchemy + Alembic with Postgres.
+A high-performance RAG (Retrieval-Augmented Generation) agent built with **FastAPI**, **LangGraph**, and **LangCache**. It helps leadership teams extract insights from both unstructured documents (strategy/risk) and structured datasets (numeric KPIs).
 
-## Prerequisites
+---
 
-1. Sync Python dependencies:
+## 🚀 Quick Start
 
+### 1. Prerequisites
+Ensure you have `uv` installed ([Install uv](https://docs.astral.sh/uv/getting-started/installation/)).
+
+### 2. Setup Dependencies
 ```bash
 uv sync
 ```
 
-2. Ensure `.env` has a DB URL:
-
-```env
-DATABASE_URL=postgresql://user:password@host:5432/dbname?sslmode=require
-```
-
-## Migration Commands
-
-Run from `apps/agent`:
-
-- Apply all migrations:
-
+### 3. Environment Configuration
+Create a `.env` file from the example:
 ```bash
-npm run db:upgrade
+cp .env.example .env
 ```
 
-- Roll back one migration:
+Fill in the following API keys and endpoints:
 
+| Service | Environment Variable | Console Link |
+| :--- | :--- | :--- |
+| **OpenAI** | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com) |
+| **Qdrant** | `QDRANT_API_KEY`, `QDRANT_CLUSTER_ENDPOINT` | [cloud.qdrant.io](https://cloud.qdrant.io) |
+| **LangCache** | `LANGCACHE_API_KEY`, `LANGCACHE_SERVER_URL` | [langcache.redis.io](https://langcache.redis.io) |
+| **Cohere** | `CO_API_KEY` | [dashboard.cohere.com](https://dashboard.cohere.com) |
+| **Anthropic** | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) |
+
+### 4. Run Development Server
 ```bash
-npm run db:downgrade
+npm run dev
 ```
+*The API will be available at `http://localhost:8000`*
 
-- Create a new migration (autogenerate):
+---
 
-```bash
-npm run db:revision -- "describe change"
-```
+## 🛠 Tech Stack
 
-After creating a revision, apply it:
+- **Framework**: [FastAPI](https://fastapi.tiapi.com/)
+- **Agent Orchestration**: [LangGraph](https://langchain-ai.github.io/langgraph/)
+- **Semantic Caching**: [LangCache](https://redis.io/langcache/) (Ultra-fast Redis-based query caching)
+- **Vector Database**: [Qdrant](https://qdrant.tech/) (Hybrid search: Dense + Sparse)
+- **Metadata & Data Storage**: **SQLite** (Stores ingested file registry and structured queryable tables)
+- **Reranking**: **Cohere Rerank v3.5** (Top-tier relevance sorting)
 
-```bash
-npm run db:upgrade
-```
+## 📂 Project Structure
 
-## Typical Workflow
-
-1. Update models in `models/`.
-2. Generate revision:
-
-```bash
-npm run db:revision -- "describe change"
-```
-
-3. Review generated file in `alembic/versions/`.
-4. Apply migration:
-
-```bash
-npm run db:upgrade
-```
-
-## Notes
-
-- Alembic reads `DATABASE_URL` from `.env`.
-- `sslmode` in the DB URL is normalized for asyncpg in `config/db.py`.
-- App startup does not auto-create tables. Migrations are the source of truth.
+- `app/agent/`: Core agent logic, prompts, and tools.
+- `app/api/`: FastAPI routes for ingestion and chat.
+- `app/db/`: Database connection handlers (SQLite, Qdrant, Redis).
+- `app/ingest/`: Processors for unstructured (PDF/Docx) and structured (CSV/XLSX) data.
+- `main.py`: Application entry point and lifespan management.
