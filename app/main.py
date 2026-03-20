@@ -24,8 +24,8 @@ async def lifespan(app: FastAPI):
     project_root.init()
     
     # Enable verbose logging for agents
-    set_verbose(True)
-    set_debug(True)
+    set_verbose(False)
+    set_debug(False)
     logger.info("Global LangChain Verbose/Debug modes enabled")
 
     await qdrant_db.connect()

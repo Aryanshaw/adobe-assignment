@@ -14,8 +14,9 @@ _langcache: Optional[LangCache] = None
 _LANGCACHE_API_KEY = os.getenv("LANGCACHE_API_KEY")
 _LANGCACHE_SERVER_URL = os.getenv("LANGCACHE_SERVER_URL")
 _LANGCACHE_CACHE_ID = os.getenv("LANGCACHE_CACHE_ID")
+_ENABLE_CACHING = os.getenv("ENABLE_RESPONSE_CACHING")
 
-if _LANGCACHE_API_KEY and _LANGCACHE_SERVER_URL and _LANGCACHE_CACHE_ID:
+if _ENABLE_CACHING=="True" and _LANGCACHE_API_KEY and _LANGCACHE_SERVER_URL and _LANGCACHE_CACHE_ID:
     _langcache = LangCache(
         server_url=_LANGCACHE_SERVER_URL,
         api_key=_LANGCACHE_API_KEY,
@@ -24,6 +25,7 @@ if _LANGCACHE_API_KEY and _LANGCACHE_SERVER_URL and _LANGCACHE_CACHE_ID:
     logger.info(f"LangCache semantic cache enabled ({_LANGCACHE_SERVER_URL})")
 else:
     missing = [k for k, v in {
+        "ENABLE_RESPONSE_CACHING": _ENABLE_CACHING,
         "LANGCACHE_API_KEY": _LANGCACHE_API_KEY,
         "LANGCACHE_SERVER_URL": _LANGCACHE_SERVER_URL,
         "LANGCACHE_CACHE_ID": _LANGCACHE_CACHE_ID,
@@ -54,7 +56,7 @@ async def handle_chat(question: str, session_id: str) -> str:
                 logger.warning(f"LangCache search failed, falling through to LLM: {cache_err}")
 
         # Step 2 — LLM invocation (cache miss or cache disabled)
-        executor = get_master_agent_executor()
+        executor = await get_master_agent_executor()
         response = await executor.ainvoke({"messages": [("user", question)]})
         answer = response["messages"][-1].content
 
