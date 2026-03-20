@@ -1,4 +1,4 @@
-from app.models.ingestion import create_ingested_files_table
+from app.models.ingestion import create_ingested_files_table, create_schema_registry_table
 from app.logger import logger
 
 async def run_migrations():
@@ -7,5 +7,6 @@ async def run_migrations():
     
     # Run the ingestion table migration
     await create_ingested_files_table()
+    await create_schema_registry_table()
     
     logger.info("Database migrations complete.")

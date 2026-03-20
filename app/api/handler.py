@@ -5,6 +5,7 @@ from typing import Dict, Any
 
 from app.logger import logger
 from app.ingest.unstructured import ingest_unstructured_file
+from app.ingest.structured import ingest_structured_file, STRUCTURED_EXTENSIONS
 
 UNSTRUCTURED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".pptx"}
 
@@ -38,8 +39,15 @@ async def handle_file_upload(file: UploadFile) -> Dict[str, Any]:
                 "message": f"Ingested unstructured file: {file.filename}", 
                 "chunks": chunks_processed
             }
+        elif ext in STRUCTURED_EXTENSIONS:
+            result = await ingest_structured_file(temp_filepath)
+            return {
+                "status": result.get("status", "success"),
+                "message": f"Ingested structured file: {file.filename} -> table: {result.get('table', 'unknown')}",
+                "rows": result.get("rows", 0)
+            }
         else:
-            return {"status": "skipped", "message": f"Unsupported or structured extension: {ext}"}
+            return {"status": "skipped", "message": f"Unsupported extension: {ext}"}
             
     except Exception as e:
         logger.error(f"Error handling file upload {file.filename}: {e}")

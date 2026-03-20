@@ -9,16 +9,14 @@ from app.logger import logger
 from app.db.qdrant import qdrant_db
 from app.db.bm25 import bm25_db
 from openai import AsyncOpenAI
-from groq import AsyncGroq
 import tiktoken
 from docling.document_converter import DocumentConverter
 from qdrant_client.models import PointStruct
-import hashlib
+from app.ingest.helpers import compute_file_hash, generate_document_summary
 from app.models.ingestion import get_ingested_file_by_hash, create_ingested_file
 import traceback
 
 openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
 # Initialize tiktoken encoding
 encoding = tiktoken.get_encoding("cl100k_base")
@@ -155,38 +153,11 @@ async def _parse_and_chunk(filepath: Path) -> list[dict[str, Any]]:
     return await asyncio.to_thread(process)
 
 
-async def generate_document_summary(text: str) -> str:
-    """Generates a concise summary using Groq's Llama model, returning only the summary."""
-    if not text.strip():
-        return "No text available for summary."
-    try:
-        system_prompt = (
-            "You are a highly analytical document summarizer. "
-            "Your ONLY task is to return a 2-3 sentence summary of the provided text. "
-            "Never use conversational filler, prefixes, or introductory phrases like 'Here is a summary'. "
-            "Just output the raw summary text and nothing else."
-        )
-        
-        summary_resp = await groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text[:15000]}
-            ],
-            temperature=0.1
-        )
-        return summary_resp.choices[0].message.content.strip()
-    except Exception as e:
-        logger.error(f"Failed to generate summary: {e}")
-        return "Summarization API call failed."
-
 async def ingest_unstructured_file(filepath: Path) -> int:
     """End-to-end ingestion for a single PDF/DOCX file."""
     try:
-        file_bytes = filepath.read_bytes()
-        file_hash = hashlib.sha256(file_bytes).hexdigest()
-        
         # Check if file is already ingested in the database
+        file_hash = compute_file_hash(filepath)
         existing = await get_ingested_file_by_hash(file_hash)
         if existing:
             logger.info(f"File '{filepath.name}' is already ingested (Hash: {file_hash}). Skipping duplicate processing.")
@@ -228,7 +199,7 @@ async def ingest_unstructured_file(filepath: Path) -> int:
             for i, c in enumerate(chunks)
         ]
         
-        collection_name = os.getenv("QDRANT_COLLECTION_NAME", "leadership_docs")
+        collection_name = os.getenv("UNSTRUCTURED_QDRANT_COLLECTION_NAME", "leadership_docs")
         
         # Store in Qdrant using the existing DB wrapper in smaller batches to avoid HTTP timeouts
         batch_size = 50
