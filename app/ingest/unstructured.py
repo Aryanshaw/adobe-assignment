@@ -207,7 +207,7 @@ async def ingest_unstructured_file(filepath: Path) -> int:
             await qdrant_db.upsert(collection_name=collection_name, points=points[i : i + batch_size])
         
         # Update BM25 index with new text chunks for hybrid search
-        await bm25_db.add_documents(texts)
+        await bm25_db.add_documents(chunks)
         
         logger.info("Qdrant and BM25 ingestion completed. Generating summary")
         

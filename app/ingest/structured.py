@@ -254,7 +254,7 @@ async def ingest_structured_file(filepath: Path) -> dict:
             for i, c in enumerate(chunks_data)
         ]
         
-        await qdrant_db.upsert(collection_name=os.getenv("STRUCTURED_QDRANT_COLLECTION_NAME"), points=points)
+        await qdrant_db.upsert(collection_name=os.getenv("STRUCTURED_QDRANT_COLLECTION_NAME", "structured_knowledge"), points=points)
         logger.info(f'Stored {len(points)} metadata chunks in structured_knowledge collection')
         
         result.update({'status': 'success', 'rows': len(df), 'table': table_name})

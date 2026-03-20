@@ -7,8 +7,9 @@ class BM25Connection:
     def __init__(self, index_path="bm25_index.pkl", corpus_path="bm25_corpus.pkl"):
         self.index_path = index_path
         self.corpus_path = corpus_path
+        self.corpus_path = corpus_path
         self.index = None
-        self.corpus = [] # List of raw strings
+        self.corpus = [] # List of dictionaries containing "text", "source_file", etc.
 
     async def connect(self) -> None:
         if os.path.exists(self.index_path) and os.path.exists(self.corpus_path):
@@ -24,18 +25,18 @@ class BM25Connection:
         else:
             logger.info("BM25 index/corpus not found. Will be created during first ingestion.")
 
-    async def add_documents(self, new_texts: list[str]) -> None:
-        """Append new documents to the corpus and rebuild the index."""
+    async def add_documents(self, new_chunks: list[dict]) -> None:
+        """Append new documents (dictionaries) to the corpus and rebuild the index."""
         from rank_bm25 import BM25Okapi
         
         def update():
             # Basic tokenization: lowercase and split by non-word characters
             import re
             def tokenize(text):
-                return re.findall(r"\w+", text.lower())
+                return re.findall(r"\w+", str(text).lower())
 
-            self.corpus.extend(new_texts)
-            tokenized_corpus = [tokenize(doc) for doc in self.corpus]
+            self.corpus.extend(new_chunks)
+            tokenized_corpus = [tokenize(doc.get("text", "")) for doc in self.corpus]
             
             self.index = BM25Okapi(tokenized_corpus)
             
@@ -45,7 +46,7 @@ class BM25Connection:
                 pickle.dump(self.corpus, f)
                 
         await asyncio.to_thread(update)
-        logger.info(f"Updated BM25 index with {len(new_texts)} new documents. Total: {len(self.corpus)}")
+        logger.info(f"Updated BM25 index with {len(new_chunks)} new documents. Total: {len(self.corpus)}")
 
     async def build_index(self, tokenized_corpus: list[list[str]]) -> None:
         """Legacy method for completeness."""
@@ -58,8 +59,13 @@ class BM25Connection:
 
     async def get_scores(self, query_tokens: list[str]) -> list[float]:
         """Read: Get the relevance scores for all documents in the index."""
+        def do_get_scores():
+            if self.index:
+                return self.index.get_scores(query_tokens)
+            return []
+        
         if self.index:
-            return self.index.get_scores(query_tokens)
+            return await asyncio.to_thread(do_get_scores)
         logger.warning("BM25 index is not loaded. Cannot get scores.")
         return []
 

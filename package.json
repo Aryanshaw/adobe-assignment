@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": ".venv/bin/uvicorn main:app --reload --port 8001",
+    "dev": ".venv/bin/uvicorn main:app --reload --port 8000",
     "lint": "uv run ruff check .",
     "lint:fix": "uv run ruff check . --fix",
     "format": "uv run ruff format .",
-    "db:upgrade": ".venv/bin/alembic upgrade head",
-    "db:downgrade": ".venv/bin/alembic downgrade -1",
-    "db:revision": ".venv/bin/alembic revision --autogenerate -m",
+    "db:upgrade": "uv run alembic upgrade head",
+    "db:downgrade": "uv run alembic downgrade -1",
+    "db:revision": "uv run alembic revision --autogenerate -m",
     "postinstall": "uv sync"
   }
 }
