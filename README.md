@@ -47,6 +47,62 @@ npm run dev
 - **Metadata & Data Storage**: **SQLite** (Stores ingested file registry and structured queryable tables)
 - **Reranking**: **Cohere Rerank v3.5** (Top-tier relevance sorting)
 
+---
+
+## 🏗 Architecture Diagrams
+
+### 1. Ingestion Pipeline
+```mermaid
+graph TD
+    A[Raw Files] --> B{File Type}
+    
+    %% Unstructured Pipeline
+    B -->|PDF/DOCX| C[Docling Parser]
+    C --> D[Semantic Chunking]
+    D --> E[OpenAI text-embedding-3-small]
+    E --> F[(Qdrant Vector DB)]
+    D --> G[(BM25 Sparse Index)]
+    
+    %% Structured Pipeline
+    B -->|CSV/XLSX| H[Pandas DataFrame]
+    H --> I[Schema Extraction]
+    I --> J[Embed Schema]
+    J --> F
+    H --> K[(SQLite Relational DB)]
+```
+
+### 2. Chat & Retrieval Pipeline
+```mermaid
+graph TD
+    User([User Query]) --> MA[Master Agent gpt-5.2]
+    
+    MA -->|Narrative / Strategy| UTool[retrieve_unstructured_context]
+    MA -->|Metrics / Tables| STool[structured_agent]
+    
+    %% Unstructured 
+    UTool --> emb1[Embed Query]
+    emb1 --> Hybrid[Hybrid Search]
+    Hybrid -.-> Qdrant[(Qdrant)]
+    Hybrid -.-> BM25[(BM25)]
+    Hybrid --> RRF[Reciprocal Rank Fusion]
+    RRF --> Cohere[Cohere Rerank v3.5]
+    Cohere --> TopK[Top 5 Excerpts]
+    
+    %% Structured
+    STool --> emb2[Embed Query]
+    emb2 --> SchemaSearch[Search Schema in Qdrant]
+    SchemaSearch --> SQLGen[Generate SQLite Query]
+    SQLGen --> Execute[Execute via Pandas/SQLite]
+    Execute -- Error? --> Retry[validate_and_retry_sql]
+    Retry --> Execute
+    Execute --> TableOut[Markdown Table Output]
+    
+    TopK --> MA
+    TableOut --> MA
+    
+    MA --> Output([Final NL Report with Citations])
+```
+
 ## 📂 Project Structure
 
 - `app/agent/`: Core agent logic, prompts, and tools.
