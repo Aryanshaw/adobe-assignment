@@ -29,6 +29,7 @@ Fill in the following API keys and endpoints:
 | **LangCache** | `LANGCACHE_API_KEY`, `LANGCACHE_SERVER_URL` | [langcache.redis.io](https://langcache.redis.io) |
 | **Cohere** | `CO_API_KEY` | [dashboard.cohere.com](https://dashboard.cohere.com) |
 | **Anthropic** | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) |
+| **Groq** | `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) |
 
 ### 4. Run Development Server
 ```bash
