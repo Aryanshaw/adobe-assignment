@@ -54,3 +54,24 @@ npm run dev
 - `app/db/`: Database connection handlers (SQLite, Qdrant, Redis).
 - `app/ingest/`: Processors for unstructured (PDF/Docx) and structured (CSV/XLSX) data.
 - `main.py`: Application entry point and lifespan management.
+
+---
+
+## 📝 Assignment Requirements & Implementation Verification
+
+### 1. Model Configuration
+The application accesses external models via environment variables. The codebase is currently configured to use:
+- **LLM / Orchestration**: `gpt-5.2` (OpenAI) powers both the main reasoning agent and the SQL table-generation subagent.
+- **Embeddings**: `text-embedding-3-small` (OpenAI) embeds text chunks (unstructured) and column definitions (structured schemas).
+- **Reranker**: `rerank-v3.5` (Cohere) refines the top documents fetched during unstructured retrieval.
+
+### 2. Implementation specifics
+- **Unstructured Context Engine**: The agent uses hybrid retrieval (Qdrant for dense vectors + local BM25 for sparse keywords), merges them using Reciprocal Rank Fusion (RRF), applies Cohere reranking, and extracts the top 5 contextual excerpts.
+- **Structured Data Engine**: The SQL agent maps natural language to database schemas using Qdrant semantic layout lookups. It safely queries the local SQLite DB using `pandas.read_sql_query()` and outputs metrics as markdown tables. Failed SQL queries invoke a self-correcting validation loop (`validate_and_retry_sql`).
+- **Prompt Enforced Outputs**: The `MASTER_SYSTEM_PROMPT` strictly demands natural language reporting formatted with a 2-sentence executive summary, bullet points, and source citations (e.g., `[filename, page]`).
+
+### 3. Running Sample Questions
+The system processes natural language seamlessly and returns the required NL outputs. Provide your own `OPENAI_API_KEY` and `CO_API_KEY` in `.env`, run `npm run dev`, and input queries from the assignment directly into the chat:
+- *"Why did revenue drop and what is the plan to recover?"* (Triggers parallel structured table math + unstructured strategy context)
+- *"Return department names, actual vs target revenue, and variance for Q3 FY2024."* (Tests deep SQL aggregation/conversion)
+- *"What is our risk and compliance approach?"* (Tests basic document retrieval)
