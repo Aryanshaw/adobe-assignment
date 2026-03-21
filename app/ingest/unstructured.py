@@ -10,10 +10,14 @@ from app.db.qdrant import qdrant_db
 from app.db.bm25 import bm25_db
 from openai import AsyncOpenAI
 import tiktoken
-from docling.document_converter import DocumentConverter
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.document_converter import DocumentConverter, PdfFormatOption
 from qdrant_client.models import PointStruct
-from app.ingest.helpers import compute_file_hash, generate_document_summary
+from app.ingest.helpers import compute_file_hash, generate_document_summary, markdown_to_df
 from app.models.ingestion import get_ingested_file_by_hash, create_ingested_file
+from app.ingest.structured import ingest_dataframe
+import traceback
 import traceback
 
 openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -61,7 +65,7 @@ def _tag_chunk(filename: str, folder: str, heading: str) -> dict[str, Any]:
             "source_file": filename,
         }
 
-def _semantic_chunk(text: str, max_tokens: int = 512, overlap_ratio: float = 0.1) -> list[str]:
+def _semantic_chunk(text: str, max_tokens: int = 1024, overlap_ratio: float = 0.1) -> list[str]:
     """Basic semantic chunker: splits by sentences, bounded by token count."""
     try:
         def token_count(s: str) -> int:
@@ -103,16 +107,36 @@ async def _parse_and_chunk(filepath: Path) -> list[dict[str, Any]]:
     
     def process():
         try:
-            converter = DocumentConverter()
+            logger.info("parsing pdf file")
+            pipeline_options = PdfPipelineOptions()
+            pipeline_options.do_ocr = False              # skip OCR on image regions
+            pipeline_options.do_table_structure = True   # keep table parsing
+            pipeline_options.images_scale = 1.0
+            pipeline_options.generate_page_images = False  # don't render page images
+            pipeline_options.generate_picture_images = False  # skip picture extraction
+
+            converter = DocumentConverter(
+                format_options={
+                    InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+                }
+            )
+
             doc = converter.convert(str(filepath)).document
             chunks = []
             
+            logger.info("parsed pdf file")
+
             # We iterate over items (Docling v2.x architecture)
             # Fallback to export_to_markdown if the structure is not easily accessible
             current_section_header = "General"
+            SKIP_LABELS = {"picture", "figure", "image", "chart", "logo", "illustration"}
             try:
                 for item, _ in doc.iterate_items():
                     item_label = getattr(item, "label", type(item).__name__).lower()
+
+                    # skip image/figure blocks — no text value, cause processing delays
+                    if any(skip in item_label for skip in SKIP_LABELS):
+                        continue
                     
                     # Track headings to provide context to chunks
                     if "header" in item_label and hasattr(item, "text"):
@@ -132,7 +156,7 @@ async def _parse_and_chunk(filepath: Path) -> list[dict[str, Any]]:
                         
                     meta = _tag_chunk(filepath.name, str(filepath.parent), current_section_header)
                     meta["page"] = getattr(item, "page_no", None)
-                    
+
                     if "table" in item_label:
                         chunks.append({"id": str(uuid.uuid4()), "text": text, "chunk_type": "table", **meta})
                     else:
@@ -144,7 +168,8 @@ async def _parse_and_chunk(filepath: Path) -> list[dict[str, Any]]:
                 markdown = doc.export_to_markdown()
                 for chunk in _semantic_chunk(markdown, max_tokens=1000):
                     chunks.append({"id": str(uuid.uuid4()), "text": chunk, "chunk_type": "mixed", **_tag_chunk(filepath.name, str(filepath.parent), "")})
-                    
+            
+            logger.info("chunks gathered")
             return chunks
         except Exception as e:
             logger.error(f"Error in _parse_and_chunk processing for {filepath.name}: {e}")
@@ -228,6 +253,25 @@ async def ingest_unstructured_file(filepath: Path) -> int:
         row_id = await create_ingested_file(filepath.name, file_hash, summary)
         
         logger.info(f"Successfully tracked and ingested {filepath.name} (ID: {row_id}) into '{collection_name}'.")
+
+        # Route extracted tables to Structured Pipeline
+        table_chunks = [c for c in chunks if c.get("chunk_type") == "table"]
+        if table_chunks:
+            logger.info(f"Found {len(table_chunks)} tables in {filepath.name}. Routing to structured SQLite pipeline...")
+            for i, tbl_chunk in enumerate(table_chunks):
+                df = markdown_to_df(tbl_chunk["text"])
+                # We want tables with at least 2 rows and 2 columns to be considered actual datasets
+                if not df.empty and len(df) > 1 and len(df.columns) > 1:
+                    table_name = filepath.stem.lower()
+                    table_name = re.sub(r'[^\w]', '_', table_name)
+                    table_name = re.sub(r'_+', '_', table_name).strip('_')
+                    table_name = f"{table_name}_tbl_{i+1}"
+                    
+                    logger.info(f"Ingesting DataFrame '{table_name}' from {filepath.name}")
+                    await ingest_dataframe(df, filepath.name, file_hash, table_name)
+                else:
+                    logger.debug(f"Skipping table {i+1} in {filepath.name} (too small or failed parse)")
+
         return len(chunks)
     except Exception as e:
         import traceback

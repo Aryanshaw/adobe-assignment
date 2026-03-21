@@ -195,35 +195,29 @@ def build_structured_chunks(filename: str, table_name: str, file_summary: str, c
         })
     return chunks
 
-async def ingest_structured_file(filepath: Path) -> dict:
-    result = {'file': filepath.name, 'status': 'failed', 'rows': 0, 'table': ''}
+async def ingest_dataframe(df: pd.DataFrame, source_filename: str, original_file_hash: str, target_table_name: str) -> dict:
+    """Core structured DB ingestion logic extracted to accept raw DataFrames."""
+    result = {'file': source_filename, 'status': 'failed', 'rows': 0, 'table': ''}
     try:
-        df = await load_structured_file(filepath)
-        
-        file_hash = compute_file_hash(filepath)
-        existing = await get_ingested_file_by_hash(file_hash)
-        if existing:
-            logger.info(f"File '{filepath.name}' already ingested (hash match). Skipping.")
-            result['status'] = 'skipped_duplicate'
-            return result
-            
         df = normalise_columns(df)
-        table_name = filepath.stem.lower()
-        table_name = re.sub(r'[^\w]', '_', table_name)
-        table_name = re.sub(r'_+', '_', table_name).strip('_')
         
-        logger.info(f"Enriching structured file {filepath.name} via Groq LLM...")
-        file_summary = await generate_structured_file_summary(filepath, df)
-        logger.info(f"File summary for {filepath.name}: {file_summary}")
-        col_descriptions = await generate_column_descriptions(df, file_summary, filepath.name)
+        # We don't skip on hash match here for PDF tables, because the hash belongs to the parent PDF
+        # and has already been verified in the unstructured flow. But for CSVs, we check elsewhere.
+
+        logger.info(f"Enriching dataframe from {source_filename} via Groq LLM...")
+        # Create a mock Path object for generate_structured_file_summary compatibility
+        file_summary = await generate_structured_file_summary(Path(source_filename), df)
+        logger.info(f"File summary for {source_filename} ({target_table_name}): {file_summary}")
         
-        logger.info(f"Saving data to SQLite table '{table_name}'...")
-        raw_schema = await store_dataframe_to_sqlite(df, table_name)
+        col_descriptions = await generate_column_descriptions(df, file_summary, source_filename)
+        
+        logger.info(f"Saving data to SQLite table '{target_table_name}'...")
+        raw_schema = await store_dataframe_to_sqlite(df, target_table_name)
         
         await write_schema_registry(
-            table_name=table_name,
-            source_file=filepath.name,
-            file_hash=file_hash,
+            table_name=target_table_name,
+            source_file=source_filename,
+            file_hash=original_file_hash,
             file_summary=file_summary,
             raw_schema=raw_schema,
             col_descriptions=json.dumps(col_descriptions),
@@ -233,17 +227,17 @@ async def ingest_structured_file(filepath: Path) -> dict:
         )
         
         await create_ingested_file(
-            file_name=filepath.name,
-            file_hash=file_hash,
-            file_type="structured",
-            table_name=table_name,
+            file_name=f"{source_filename} ({target_table_name})",
+            file_hash=f"{original_file_hash}_{target_table_name}", # Unique composite hash
+            file_type="structured_table",
+            table_name=target_table_name,
             row_count=len(df),
             col_count=len(df.columns),
             summary=file_summary
         )
         
-        logger.info(f"Generating knowledge embeddings for structured file...")
-        chunks_data = build_structured_chunks(filepath.name, table_name, file_summary, col_descriptions, df.columns.tolist())
+        logger.info(f"Generating knowledge embeddings for structured table...")
+        chunks_data = build_structured_chunks(source_filename, target_table_name, file_summary, col_descriptions, df.columns.tolist())
         
         texts = [c['text'] for c in chunks_data]
         resp = await openai_client.embeddings.create(model='text-embedding-3-small', input=texts)
@@ -255,12 +249,35 @@ async def ingest_structured_file(filepath: Path) -> dict:
         ]
         
         await qdrant_db.upsert(collection_name=os.getenv("STRUCTURED_QDRANT_COLLECTION_NAME", "structured_knowledge"), points=points)
-        logger.info(f'Stored {len(points)} metadata chunks in structured_knowledge collection')
+        logger.info(f'Stored {len(points)} metadata chunks in structured_knowledge collection for {target_table_name}')
         
-        result.update({'status': 'success', 'rows': len(df), 'table': table_name})
+        result.update({'status': 'success', 'rows': len(df), 'table': target_table_name})
         return result
 
     except Exception as e:
         import traceback
-        logger.error(f"Error ingesting structured file {filepath.name}:\n{traceback.format_exc()}")
+        logger.error(f"Error in ingest_dataframe for {target_table_name}:\n{traceback.format_exc()}")
         return result
+
+async def ingest_structured_file(filepath: Path) -> dict:
+    """Loads a CSV/XLSX file and passes it to the generic DataFrame ingestion pipeline."""
+    try:
+        file_hash = compute_file_hash(filepath)
+        existing = await get_ingested_file_by_hash(file_hash)
+        if existing:
+            logger.info(f"File '{filepath.name}' already ingested (hash match). Skipping.")
+            return {'file': filepath.name, 'status': 'skipped_duplicate', 'rows': 0, 'table': ''}
+            
+        df = await load_structured_file(filepath)
+        
+        table_name = filepath.stem.lower()
+        table_name = re.sub(r'[^\w]', '_', table_name)
+        table_name = re.sub(r'_+', '_', table_name).strip('_')
+        
+        return await ingest_dataframe(df, filepath.name, file_hash, table_name)
+
+    except Exception as e:
+        import traceback
+        logger.error(f"Error loading structured file {filepath.name}:\n{traceback.format_exc()}")
+        return {'file': filepath.name, 'status': 'failed', 'rows': 0, 'table': ''}
+

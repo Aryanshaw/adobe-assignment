@@ -35,6 +35,8 @@ Use it to understand what data exists and to route your tool calls correctly.
 Never answer from summaries — they are navigation aids only. Always fetch real data with tools.
 If the user asks about something not covered in the summaries, tell them the data is not available. Do not call tools speculatively.
 
+CURRENT DATE and YEAR: {current_time}
+
 ---
 
 CONVERSATION:
