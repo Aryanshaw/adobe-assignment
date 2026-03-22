@@ -1,6 +1,6 @@
 # Leadership Intelligence Agent 🤖
 
-A high-performance RAG (Retrieval-Augmented Generation) agent built with **FastAPI**, **LangGraph**, and **LangCache**. It helps leadership teams extract insights from both unstructured documents (strategy/risk) and structured datasets (numeric KPIs).
+A high-performance RAG (Retrieval-Augmented Generation) agent built with **FastAPI**, **LangChain**, and **LangCache**. It helps leadership teams extract insights from both unstructured documents (strategy/risk) and structured datasets (numeric KPIs).
 
 ---
 
@@ -42,7 +42,6 @@ npm run dev
 ## 🛠 Tech Stack
 
 - **Framework**: [FastAPI](https://fastapi.tiapi.com/)
-- **Agent Orchestration**: [LangGraph](https://langchain-ai.github.io/langgraph/)
 - **Semantic Caching**: [LangCache](https://redis.io/langcache/) (Ultra-fast Redis-based query caching)
 - **Vector Database**: [Qdrant](https://qdrant.tech/) (Hybrid search: Dense + Sparse)
 - **Metadata & Data Storage**: **SQLite** (Stores ingested file registry and structured queryable tables)
