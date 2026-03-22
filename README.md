@@ -131,3 +131,6 @@ The system processes natural language seamlessly and returns the required NL out
 - *"Why did revenue drop and what is the plan to recover?"* (Triggers parallel structured table math + unstructured strategy context)
 - *"Return department names, actual vs target revenue, and variance for Q3 FY2024."* (Tests deep SQL aggregation/conversion)
 - *"What is our risk and compliance approach?"* (Tests basic document retrieval)
+
+### 4. Assumptions and design approach
+- I have added a complete assumptions i made during the implementation of the assignment in the [ASSUMPTIONS.md](https://github.com/Aryanshaw/adobe-assignment/blob/main/ASSUMPTIONS.md)
