@@ -113,6 +113,15 @@ graph TD
 
 ---
 
+## Available Endpoints
+
+| Endpoint | Payload | Description |
+| :--- | :--- | :--- |
+| `/ingest` | formdata (file: [file]) | Ingest a file and return the ingested file's ID. |
+| `/chat` | {"question": "What is our revenue trend ffrom 2020-2021"} | Chat with the agent and return the chat response. |
+
+---
+
 ## 📝 Assignment Requirements & Implementation Verification
 
 ### 1. Model Configuration
